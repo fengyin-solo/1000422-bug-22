@@ -12,8 +12,22 @@ from app.seed import SEED_ROWS
 class Store:
     def __init__(self) -> None:
         self._tables: dict[str, list[dict[str, Any]]] = {
-            name: [dict(row) for row in rows] for name, rows in SEED_ROWS.items()
+            name: [self._normalize(name, dict(row)) for row in rows]
+            for name, rows in SEED_ROWS.items()
         }
+
+    def _normalize(self, name: str, row: dict[str, Any]) -> dict[str, Any]:
+        if name == "sludge":
+            status = row.get("status")
+            if status in {"待外运", "运输中"}:
+                row["pending"] = True
+            elif status in {"已接收", "已退回"}:
+                row["pending"] = False
+            if status == "已退回":
+                row["abnormal"] = True
+            elif status in {"待外运", "运输中", "已接收"}:
+                row["abnormal"] = False
+        return row
 
     def module_names(self) -> list[str]:
         return sorted(self._tables)

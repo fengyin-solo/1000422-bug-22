@@ -30,6 +30,18 @@ def list_entries(
     return PageResult(items=items, total=total, page=page, size=size)
 
 
+@router.get("/carrier-statistics")
+def carrier_statistics() -> dict[str, Any]:
+    """按承运单位汇总；没有记录时返回空列表，调用方无需把空数据当异常处理。"""
+    items = service.carrier_stats()
+    return {
+        "module": "sludge",
+        "total": len(items),
+        "items": items,
+        "summary": service.summary(),
+    }
+
+
 @router.get("/{entry_id}", response_model=dict)
 def get_entry(entry_id: int) -> dict:
     """读取单条污泥处置单明细；不存在时给出可读的错误说明。"""
