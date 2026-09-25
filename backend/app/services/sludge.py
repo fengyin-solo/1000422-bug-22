@@ -9,7 +9,8 @@ MODULE = "sludge"
 REQUIRED_FIELDS = ["处置单号", "污泥来源", "含水率"]
 STATUS_ORDER = ["待外运", "运输中", "已接收", "已退回"]
 ACTION_RULES = {"安排外运": "运输中", "确认接收": "已接收", "退回污泥": "已退回"}
-NEGATIVE_ACTIONS = []
+NEGATIVE_ACTIONS = ["退回污泥"]
+TERMINAL_STATUSES = ["已接收", "已退回"]
 
 
 class SludgeService:
@@ -55,7 +56,15 @@ class SludgeService:
         target = ACTION_RULES[action]
         if target not in STATUS_ORDER:
             return None, f"目标状态「{target}」不在允许的状态序列里"
+        current = str(entry.get("status") or STATUS_ORDER[0])
+        if current == target:
+            # 同一动作重复提交（如同一条重复退回）：按当前口径重写标记后直接确认，幂等不报错、不重复计数
+            entry["pending"] = target not in TERMINAL_STATUSES
+            entry["abnormal"] = action in NEGATIVE_ACTIONS
+            return entry, f"污泥处置单已{action}，重复提交已忽略"
+        if current in TERMINAL_STATUSES:
+            return None, f"污泥处置单当前为「{current}」状态，不能再执行{action}"
         entry["status"] = target
-        entry["pending"] = target != STATUS_ORDER[-1]
+        entry["pending"] = target not in TERMINAL_STATUSES
         entry["abnormal"] = action in NEGATIVE_ACTIONS
         return entry, f"污泥处置单已{action}"
